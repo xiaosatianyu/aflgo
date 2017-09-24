@@ -105,7 +105,7 @@ bool AFLCoverage::runOnModule(Module &M) {
     return false;
   }
 
-  std::list<std::string> targets;
+  std::list<std::string> targets; //保存所有的
   std::map<std::string, int> bb_to_dis;
   std::vector<std::string> basic_blocks;
 
@@ -152,7 +152,7 @@ bool AFLCoverage::runOnModule(Module &M) {
   }
 
   LLVMContext &C = M.getContext();
-
+  //这个是得到类型变量吗?? int类型
   IntegerType *Int8Ty  = IntegerType::getInt8Ty(C);
   IntegerType *Int32Ty = IntegerType::getInt32Ty(C);
   IntegerType *Int64Ty = IntegerType::getInt64Ty(C);
@@ -262,7 +262,7 @@ bool AFLCoverage::runOnModule(Module &M) {
       for (auto &BB : F) {
 
         TerminatorInst *TI = BB.getTerminator();
-        IRBuilder<> Builder(TI);
+        IRBuilder<> Builder(TI); // TI是最后一条指令
 
         std::string bb_name("");
         std::string filename;
@@ -284,10 +284,10 @@ bool AFLCoverage::runOnModule(Module &M) {
               filename = cDILoc.getFilename().str();
             }
 #else
-
+          //当前指令的位置
           if (DILocation *Loc = I.getDebugLoc()) {
-            line = Loc->getLine();
-            filename = Loc->getFilename().str();
+            line = Loc->getLine(); //该位置所在的行号
+            filename = Loc->getFilename().str(); //该位置所在的文件
 
             if (filename.empty()) {
               DILocation *oDILoc = Loc->getInlinedAt();
@@ -310,10 +310,10 @@ bool AFLCoverage::runOnModule(Module &M) {
               if (found != std::string::npos)
                 filename = filename.substr(found + 1);
 
-              bb_name = filename + ":" + std::to_string(line);
+              bb_name = filename + ":" + std::to_string(line); //bb_name为什么是 文件名加行号? 这和基本块有什么关系
 
             }
-
+            //判断当前得到的bb_name是否是target
             if (!is_target) {
 	      for (std::list<std::string>::iterator it = targets.begin(); it != targets.end(); ++it) {
 
@@ -332,7 +332,7 @@ bool AFLCoverage::runOnModule(Module &M) {
               }
             }
 
-
+            //找出call行
             if (auto *c = dyn_cast<CallInst>(&I)) {
 
               std::size_t found = filename.find_last_of("/\\");
@@ -393,7 +393,7 @@ bool AFLCoverage::runOnModule(Module &M) {
             raw_ostream *cfgFile =
               new llvm::raw_fd_ostream(fileno(cfgFILE), false, true);
 
-            WriteGraph(*cfgFile, (const Function*)&F, true);
+            WriteGraph(*cfgFile, (const Function*)&F, true); //这个函数保存了CFG图, 看下其原理
             fflush(cfgFILE);
             fclose(cfgFILE);
           }
