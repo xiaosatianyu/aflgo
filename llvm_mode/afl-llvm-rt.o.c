@@ -65,10 +65,10 @@ static const unsigned int prime_2 = 5009;
    is used for instrumentation output before __afl_map_shm() has a chance to run.
    It will end up as .comm, so it shouldn't be too wasteful. */
 
-u8  __afl_area_initial[MAP_SIZE + 16];
-u8* __afl_area_ptr = __afl_area_initial;
+u8  __afl_area_initial[MAP_SIZE + 16];  //这里为什么加了16
+u8* __afl_area_ptr = __afl_area_initial;  //每次执行轨迹
 
-__thread u32 __afl_prev_loc;
+__thread u32 __afl_prev_loc;  //上一个基本块的地址?
 
 
 /* Running in persistent mode? */
