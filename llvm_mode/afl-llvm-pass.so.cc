@@ -97,6 +97,9 @@ public:
 char AFLCoverage::ID = 0;
 //重写runOnModule方法  什么时候会进入这个函数?
 bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做一个类了吧
+	//for debug
+//	std::ofstream yytest;
+//	yytest.open(OutDirectory + "/yytest.txt",std::ofstream::out | std::ofstream::app);
 
 	bool is_aflgo = false; //true表示距离编译
 	bool is_aflgo_preprocessing = false;
@@ -229,6 +232,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 		std::ofstream bbcalls;
 		std::ofstream fnames;
 		std::ofstream ftargets;
+
 		struct stat sb;
 
 		bbnames.open(OutDirectory + "/BBnames.txt",
@@ -239,6 +243,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 				std::ofstream::out | std::ofstream::app);
 		ftargets.open(OutDirectory + "/Ftargets.txt",
 				std::ofstream::out | std::ofstream::app);
+
 
 		/* Create dot-files directory */
 		std::string dotfiles(OutDirectory + "/dot-files");
@@ -330,7 +335,6 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 							for (std::list<std::string>::iterator it =
 									targets.begin(); it != targets.end();
 									++it) {
-
 								std::string target = *it;
 								std::size_t found = target.find_last_of("/\\");
 								if (found != std::string::npos)
@@ -340,10 +344,10 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 								std::string target_file = target.substr(0, pos);
 								unsigned int target_line = atoi(
 										target.substr(pos + 1).c_str());
-
 								if (!target_file.compare(filename)
 										&& target_line == line)
-									is_target = true;
+									{
+									is_target = true;}
 
 							}
 						}
@@ -420,6 +424,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 						fclose(cfgFILE);
 					}
 				}
+
 				if (is_target)
 					ftargets << F.getName().str() << "\n";
 				fnames << F.getName().str() << "\n";
