@@ -10,6 +10,7 @@ TMPDIR=$(readlink -e $2)
 AFLGO="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 fuzzer=""
 if [ $# -eq 3 ]; then
+  #获得fuzzer的绝对路径
   fuzzer=$(find $BINARIES -name "$3.0.0.*.bc" | rev | cut -d. -f5- | rev)
   if [ $(echo "$fuzzer" | wc -l) -ne 1 ]; then
     echo "Couldn't find bytecode for fuzzer $3 in folder $BINARIES."
@@ -19,6 +20,7 @@ fi
 
 SCRIPT=$0
 ARGS=$@
+python_path="/home/xiaosatianyu/.virtualenvs/xiaosa/bin/python"
 
 #SANITY CHECKS
 if [ -z "$BINARIES" ]; then echo "Couldn't find binaries folder ($1)."; exit 1; fi
@@ -96,16 +98,16 @@ next_step
 if [ $RESUME -le $STEP ]; then
   echo "($STEP) Computing distance for call graph .."
 
-  $AFLGO/distance.py -d $TMPDIR/dot-files/callgraph.dot -t $TMPDIR/Ftargets.txt -n $TMPDIR/Fnames.txt -o $TMPDIR/distance.callgraph.txt > $TMPDIR/step${STEP}.log 2>&1 || FAIL=1
-
+  $python_path $AFLGO/distance.py -d $TMPDIR/dot-files/callgraph.dot -t $TMPDIR/Ftargets.txt -n $TMPDIR/Fnames.txt -o $TMPDIR/distance.callgraph.txt > $TMPDIR/step${STEP}.log 2>&1 || FAIL=1
+  
   if [ $(cat $TMPDIR/distance.callgraph.txt | wc -l) -eq 0 ]; then
     FAIL=1
     next_step
   fi
 
-  printf "($STEP) Computing distance for control-flow graphs "
+  printf "($STEP) Computing distance for control-flow graphs\n "
   for f in $(ls -1d $TMPDIR/dot-files/cfg.*.dot); do
-
+	
     # Skip CFGs of functions we are not calling
     if ! grep "$(basename $f | cut -d. -f2)" $TMPDIR/dot-files/callgraph.dot >/dev/null; then
       printf "\nSkipping $f..\n"
@@ -116,14 +118,15 @@ if [ $RESUME -le $STEP ]; then
 
     #Clean up duplicate lines and \" in labels (bug in Pydotplus)
     awk '!a[$0]++' $f > ${f}.smaller.dot
-    mv $f $f.bigger.dot
+    #不用备份了
+    #mv $f $f.bigger.dot
     mv $f.smaller.dot $f
     sed -i s/\\\\\"//g $f
     sed -i 's/\[.\"]//g' $f
     sed -i 's/\(^\s*[0-9a-zA-Z_]*\):[a-zA-Z0-9]*\( -> \)/\1\2/g' $f
-
-    #Compute distance
-    $AFLGO/distance.py -d $f -t $TMPDIR/BBtargets.txt -n $TMPDIR/BBnames.txt -s $TMPDIR/BBcalls.txt -c $TMPDIR/distance.callgraph.txt -o ${f}.distances.txt >> $TMPDIR/step${STEP}.log 2>&1 #|| FAIL=1
+	
+    #Compute distance  
+    $python_path $AFLGO/distance.py -d $f -t $TMPDIR/BBtargets.txt -n $TMPDIR/BBnames.txt -s $TMPDIR/BBcalls.txt -c $TMPDIR/distance.callgraph.txt -o ${f}.distances.txt >> $TMPDIR/step${STEP}.log 2>&1 #|| FAIL=1
     if [ $? -ne 0 ]; then
       echo -e "\e[93;1m[!]\e[0m Could not calculate distance for $f."
     fi

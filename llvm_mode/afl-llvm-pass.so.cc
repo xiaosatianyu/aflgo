@@ -119,6 +119,19 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 			FATAL("Provide output directory '-outdir <directory>'");
 			return false;
 		}
+		//add by xiaosa-------
+		// 创建output目录
+		struct stat sby;
+		std::string youtput(OutDirectory);
+		if (stat(youtput.c_str(), &sby) != 0) {
+			const int dir_err = mkdir(youtput.c_str(),
+					S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			if (-1 == dir_err)
+				FATAL("Could not create directory %s.", youtput.c_str());
+		}
+		//-------
+
+
 		//读取所有的targets
 		std::ifstream targetsfile(TargetsFile);
 		std::string line;
@@ -128,7 +141,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 
 		//aflgo预处理
 		is_aflgo_preprocessing = true; //读到目标地址就要预处理了, 表示准备计算距离
-
+		SAYF(cCYA "read target sucess!\n");
 	} else if (!DistanceFile.empty()) {  // distance.cfg.txt文件 某一行和目标之间的距离
 
 		std::ifstream cf(DistanceFile.c_str()); //c_str() 函数表示 返回一个指向正规C字符串的指针常量
@@ -166,16 +179,13 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 
 	char be_quiet = 0;
 
-	if (isatty(2) && !getenv("AFL_QUIET")) { //isatty(2) 检查屏幕输出
-
+	if (isatty(2) && !getenv("AFL_QUIET"))
+	{ //isatty(2) 检查屏幕输出
 		if (is_aflgo || is_aflgo_preprocessing)
-			SAYF(
-					cCYA "aflgo-llvm-pass (yeah!) " cBRI VERSION cRST " (%s mode)\n",
-					(is_aflgo_preprocessing ?
-							"preprocessing" : "distance instrumentation"));
+			SAYF( cCYA "aflgo-llvm-pass (yeah!) " cBRI VERSION cRST " (%s mode)\n",
+				(is_aflgo_preprocessing ?"preprocessing" : "distance instrumentation"));
 		else
-			SAYF(
-					cCYA "afl-llvm-pass " cBRI VERSION cRST " by <lszekeres@google.com>\n");
+			SAYF(cCYA "afl-llvm-pass " cBRI VERSION cRST " by <lszekeres@google.com>\n");
 
 	} else
 		be_quiet = 1;
@@ -227,7 +237,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 	int inst_blocks = 0;
 
 	if (is_aflgo_preprocessing) {
-
+		SAYF(cCYA "step in as aflgo_preprocessing!\n");
 		std::ofstream bbnames;
 		std::ofstream bbcalls;
 		std::ofstream fnames;
@@ -438,7 +448,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 		ftargets.close();
 
 	} else {
-		//根据距离,进行编译
+		//根据距离,进行编译插桩
 		for (auto &F : M) {
 
 			int distance = -1;

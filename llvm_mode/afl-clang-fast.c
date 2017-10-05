@@ -356,7 +356,7 @@ int main(int argc, char** argv) {
   edit_params(argc, argv);
   //显示命令
 //  for (int i=0; i<=argc;i++){
-//	  printf("%s\n",cc_params[i]);
+//	  printf("%s ",cc_params[i]);
 //  }
   execvp(cc_params[0], (char**)cc_params);
 

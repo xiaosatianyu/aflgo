@@ -3,6 +3,13 @@
 import argparse
 import networkx as nx
 import re
+import logging
+import coloredlogs
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("calculation")
+
+
 
 #Regular expression to find callee
 pattern = re.compile('@.*?\(')
@@ -21,8 +28,10 @@ def find_nodes (name):
   n_name = node_name (name)
   n_list = list (filter (lambda d: 'label' in d[1] and n_name in d[1]['label'], G.nodes(data=True)))
   if len (n_list) > 0:
+    logger.info("%s is in the current graph",name)
     return n_list
   else:
+    #logger.info("%s is not in the current graph",name)
     return []
 
 ##################################
@@ -32,21 +41,22 @@ def distance (name):
 
   distance = -1
   #name是所有在所有编译中出现过的基本块或者函数
-  #从当前CFG,CG图中找出, n是基本块地址
-  #CFG中表示所有call基本块
-  for (n, _) in find_nodes (name):  # n is the name of the node in the Graph
+  #从当前CFG,CG图中找出n, n是基本块地址
+  for (n, n_value) in find_nodes (name):  # n is the name of the node in the Graph
+    logger.info("cal the distance with \'%s\' BB ",n_value["label"])
     d = 0.0
     i = 0 # i is the num
     if is_cg:
-      for (t, _) in targets:
+      for (t, t_value) in targets:
         # t如果不是基本块地址,是不会有距离的, targets中必须存在有基本块起点地址
         if nx.has_path (G, n, t):
-            #计算出从函数到目标函数之间的距离
+          #计算出从函数到目标函数之间的距离
+          logger.info("find a path from %s function to %s funtion in targets",n_value["label"],t_value["label"])
           shortest = nx.dijkstra_path_length (G, n, t)
           d += 1.0 / (1.0 + shortest)  #调和距离的分母计算
           i += 1
     else:
-      #CFG图中所有call基本块
+      #CFG图中所有 call 基本块
       for t_name in bb_distance:
         di = 0.0
         ii = 0 #表示次数
@@ -74,6 +84,7 @@ def distance (name):
 
 # Main function
 if __name__ == '__main__':
+  coloredlogs.install()
   parser = argparse.ArgumentParser ()# 创建 ArgumentParser() 对象
   # add_argument 添加参数
   parser.add_argument ('-d', '--dot', type=str, required=True, help="Path to dot-file representing the graph.")
@@ -85,54 +96,61 @@ if __name__ == '__main__':
   #解析参数
   args = parser.parse_args ()
 
-  print ("\nParsing %s .." % args.dot)
+  logger.info("\nParsing %s\n", args.dot)
   G = nx.DiGraph(nx.drawing.nx_pydot.read_dot(args.dot)) #重构dot的图,这个应该是一致的 这个是 有向图
-  print (nx.info(G))
+  print(nx.info(G))
 
   is_cg = 1 if "Name: Call graph" in nx.info(G) else 0
-  print ("\nWorking in %s mode.." % ("CG" if is_cg else "CFG"))
+  logger.info("Working in %s mode.." , ("CG" if is_cg else "CFG"))
 
   # Process as ControlFlowGraph
   caller = ""
   cg_distance = {} #CG图中的距离值,即编译过的函数和目标函数在CG图上的调和距离; 这个是list,key是函数名称,value是距离
   #当前CFG图中的所有call行,以及它的距离
-  bb_distance = {} #BBcall的内容,所有call其他函数的行,这里的行地址刚好都是基本块的首地址
+  bb_distance = {} #BBcall的内容,所有call其他函数的行,这里的行地址刚好都是基本块的首地址 
   if not is_cg :
 
     if args.cg_distance is None:
-      print ("Specify file containing CG-level distance (-c).")
+      logger.error("Specify file containing CG-level distance (-c).")
       exit(1)
-
     elif args.cg_callsites is None:
-      print ("Specify file containing mapping between basic blocks and called functions (-s).")
+      logger.error("Specify file containing mapping between basic blocks and called functions (-s).")
       exit(1)
-
     else:
-
+      #2.1 get funtion name
       caller = args.dot.split(".")
       caller = caller[len(caller)-2] #从CFG文件名中提取出函数名称,CFG中的基本单元是基本块
-      print ("Loading cg_distance for function '%s'.." % caller)
+      logger.info("Loading cg_distance for function '%s'.." ,caller)
 
+      #2.2 get the distacne calculate from CG graph
       with open(args.cg_distance, 'r') as f:
         for l in f.readlines():
           s = l.strip().split(",")
           cg_distance[s[0]] = float(s[1])#保存对应的函数的距离,函数:距离
-
+      
+      #2.3  get information from BBcalls.txt save some information into bb_distance
       with open(args.cg_callsites, 'r') as f:
         for l in f.readlines():
           s = l.strip().split(",")
           #判断当前CFG中是否有call的函数,call后是一个基本块
           #CFG中如果有call函数行,自成一个基本块
           if len(find_nodes(s[0])) > 0:
+            logger.info("find in current %s CFG: %s call %s",caller,s[0],s[1])
             #s[1]是被call的目标,该目标函数是否有距离
             #这里只记录了call基本块的距离
             if s[1] in cg_distance:
+              logger.info("%s has a distance")
               if s[0] in bb_distance:
                 if bb_distance[s[0]] > cg_distance[s[1]]:
                   bb_distance[s[0]] = cg_distance[s[1]] #取最小距离值
               else:
                 bb_distance[s[0]] = cg_distance[s[1]]#记录 当前call基本块和目标的距离
-
+      if len(bb_distance)==0:
+        logger.info("there is not call line in %s CFG",caller)
+        logger.info("-----------------------------------------")
+        exit(0)
+      
+      #2.4 set to 0, if some item in bb_distance is the target
       print ("Adding target BBs (if any)..")
       #问题 这里 BBtareget中的内容和基本块之间的关系?
       #如果CFG图中有目标, 则对应目标的距离为0
@@ -150,22 +168,35 @@ if __name__ == '__main__':
 
   # Process as CallGraph
   else:
-
-    print ("Loading targets..")
+    #1.1.find the target function in the CG graph
+    logger.info("Loading targets..")
     with open(args.targets, "r") as f:
       targets = [] #记录所有CG图中存在的target, 目标所在函数 Ftargets
       for line in f.readlines ():
+        logger.info("deal with %s",line)
         line = line.strip ()
         for target in find_nodes(line):
+          logger.info("add the %s target",target)
           targets.append (target)
-
     if (len (targets) == 0 and is_cg):
       print ("No targets available")
       exit(1)
 
-  print ("Calculating distance..")
+  # both CFG and CG come here
+  #2.5 calculation the distance
+  logger.info("Calculating distance..")
   with open(args.out, "w") as out:
     with open(args.names, "r") as f: #CG图:所有其他函数到目标基本块所在函数的距离;  CFG图:
       for line in f.readlines():#遍历所有编译过的函数
         line = line.strip()
-        distance (line) # 第一种CG中line是所有函数名称;  CFG图中:计算所有编译过基本块(会排除call基本块)和目标之间的距离
+        if len(line)==0:
+          continue
+        if is_cg:
+          #1.2 try to cal the distance with  targets
+          #logger.info("try to cal the distance with %s funtion in CG",line)
+          pass
+        else:
+          #logger.info("try to cal the distance with \'%s\' BB ",line)
+          pass
+        distance (line) # 第一种CG中line是所有函数名称;  CFG图中:计算所有编译过基本块(会排除call基本块)和目标之间的距
+  logger.info("end")
