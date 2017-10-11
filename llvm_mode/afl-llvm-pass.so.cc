@@ -99,7 +99,7 @@ char AFLCoverage::ID = 0;
 bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做一个类了吧
 	//for debug
 //	std::ofstream yytest;
-//	yytest.open(OutDirectory + "/yytest.txt",std::ofstream::out | std::ofstream::app);
+//	yytest.open(OutDirectory + "/yydebug.txt",std::ofstream::out | std::ofstream::app);
 
 	bool is_aflgo = false; //true表示距离编译
 	bool is_aflgo_preprocessing = false;
@@ -253,7 +253,6 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 				std::ofstream::out | std::ofstream::app);
 		ftargets.open(OutDirectory + "/Ftargets.txt",
 				std::ofstream::out | std::ofstream::app);
-
 
 		/* Create dot-files directory */
 		std::string dotfiles(OutDirectory + "/dot-files");
