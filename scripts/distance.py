@@ -191,12 +191,12 @@ if __name__ == '__main__':
         line = line.strip()
         if len(line)==0:
           continue
-        if is_cg:
-          #1.2 try to cal the distance with  targets
-          #logger.info("try to cal the distance with %s funtion in CG",line)
-          pass
+        if ":" in line:
+          #bbnames
+          content=line.split(":")[0]+":"+line.split(":")[1] # remove the name of function
+          content=content.strip() 
         else:
-          #logger.info("try to cal the distance with \'%s\' BB ",line)
-          pass
-        distance (line) # 第一种CG中line是所有函数名称;  CFG图中:计算所有编译过基本块(会排除call基本块)和目标之间的距
+          #fnames
+          content=line
+        distance (content) # 第一种CG中line是所有函数名称;  CFG图中:计算所有编译过基本块(会排除call基本块)和目标之间的距
   logger.info("end")

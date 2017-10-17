@@ -98,6 +98,8 @@ next_step
 if [ $RESUME -le $STEP ]; then
   echo "($STEP) Computing distance for call graph .."
 
+  echo "$python_path $AFLGO/distance.py -d $TMPDIR/dot-files/callgraph.dot -t $TMPDIR/Ftargets.txt -n $TMPDIR/Fnames.txt -o $TMPDIR/distance.callgraph.txt"
+  
   $python_path $AFLGO/distance.py -d $TMPDIR/dot-files/callgraph.dot -t $TMPDIR/Ftargets.txt -n $TMPDIR/Fnames.txt -o $TMPDIR/distance.callgraph.txt > $TMPDIR/step${STEP}.log 2>&1 || FAIL=1
   
   if [ $(cat $TMPDIR/distance.callgraph.txt | wc -l) -eq 0 ]; then

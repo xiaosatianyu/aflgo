@@ -97,12 +97,10 @@ public:
 char AFLCoverage::ID = 0;
 //重写runOnModule方法  什么时候会进入这个函数?
 bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做一个类了吧
-
-#ifdef YYDBG
+	//for debug
 	std::ofstream yytest;
 	yytest.open(OutDirectory + "/yydebug.txt",
 			std::ofstream::out | std::ofstream::app);
-#endif
 
 	bool is_aflgo = false; //true表示距离编译
 	bool is_aflgo_preprocessing = false;
@@ -122,7 +120,6 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 			FATAL("Provide output directory '-outdir <directory>'");
 			return false;
 		}
-#ifdef YYDBG
 		//add by xiaosa-------
 		// 创建output目录
 		struct stat sby;
@@ -133,7 +130,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 			if (-1 == dir_err)
 				FATAL("Could not create directory %s.", youtput.c_str());
 		}
-#endif
+		//-------
 
 		//读取所有的targets
 		std::ifstream targetsfile(TargetsFile);
@@ -242,9 +239,6 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 
 	if (is_aflgo_preprocessing) {
 		SAYF(cCYA "step in as aflgo_preprocessing!\n");
-#ifdef XIAOSA
-		std::ofstream ins_info; //用来保存每个指令的信息
-#endif
 		std::ofstream bbnames;
 		std::ofstream bbcalls;
 		std::ofstream fnames;
@@ -260,10 +254,6 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 				std::ofstream::out | std::ofstream::app);
 		ftargets.open(OutDirectory + "/Ftargets.txt",
 				std::ofstream::out | std::ofstream::app);
-#ifdef XIAOSA
-		ins_info.open(OutDirectory + "/Ins_info.txt",
-						std::ofstream::out | std::ofstream::app);
-#endif
 
 		/* Create dot-files directory */
 		std::string dotfiles(OutDirectory + "/dot-files");
@@ -305,6 +295,22 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 				unsigned line;
 				//遍历所有指令
 				for (auto &I : BB) {
+#ifdef LLVM_OLD_DEBUG_API
+					//yyy 调试,不进入这个宏
+					DebugLoc Loc = I.getDebugLoc();
+					if (!Loc.isUnknown()) {
+
+						DILocation cDILoc(Loc.getAsMDNode(M.getContext()));
+						DILocation oDILoc = cDILoc.getOrigLocation();
+
+						line = oDILoc.getLineNumber();
+						filename = oDILoc.getFilename().str();
+
+						if (filename.empty()) {
+							line = cDILoc.getLineNumber();
+							filename = cDILoc.getFilename().str();
+						}
+#else
 
 					if (DILocation *Loc = I.getDebugLoc()) {
 						line = Loc->getLine(); //得到对应指令在源代码中的行号
@@ -318,6 +324,7 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 							}
 						}
 
+#endif /* LLVM_OLD_DEBUG_API */
 
 						/* Don't worry about external libs */
 						std::string Xlibs("/usr/");
@@ -326,15 +333,15 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 							continue;
 
 						if (bb_name.empty()) {
-							//只有bb_name为空,才会重新赋值 fuck
+
 							std::size_t found = filename.find_last_of("/\\");
 							if (found != std::string::npos)
 								filename = filename.substr(found + 1);
-#ifdef YYDBG
-							bb_name = filename + ":" + std::to_string(line)+ ":" + F.getName().str();
-#else
-							bb_name = filename + ":" + std::to_string(line); //所有指令对应的文件和行号
-#endif
+
+							//bb_name = filename + ":" + std::to_string(line); //所有指令对应的文件和行号
+							//for debug
+							bb_name = filename + ":" + std::to_string(line)
+									+ ":" + F.getName().str();
 						}
 						//判断当前的指令所在行号所在位置是否是目标,  结果放在 is_target
 						if (!is_target) {
@@ -355,26 +362,16 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 									is_target = true;
 								}
 							}
-						} //end if (!is_target)
 
-#ifdef XIAOSA
-						//保存所有指令的信息
-						std::string ins_line("");
-						std::size_t found = filename.find_last_of("/\\");
-						if (found != std::string::npos)	filename = filename.substr(found + 1);
-						ins_line = filename + ":" + std::to_string(line)+ ":" + F.getName().str()+":\n";
-						ins_info << ins_line ;
-#endif
+//							// for debug
+//							if (F.getName().str() == "get_next_format") {
+//
+//								yytest << "filename:" << filename << " ";
+//								yytest << "line:" << line << "\n";
+//							}
 
-#ifdef YYDBG
-						//保存某些函数的指令
-//						if (filename=="readcdf.c" and line ==363)
-//						{
-//							yytest << bb_name <<":"<< "\n" ;
-//							yytest <<std::to_string(line);
-//						}
-#endif
-
+						}
+						yytest << bb_name << "\n" ;
 						//如果当前指令是call指令,即调用别的函数
 						if (auto *c = dyn_cast < CallInst > (&I)) {
 
@@ -403,9 +400,8 @@ bool AFLCoverage::runOnModule(Module &M) {  //这里是将整个系统都当做�
 				} //LLVM_OLD_DEBUG_API宏没有启用的化,就是这里  //end  for (auto &BB : F)
 
 				//如果LLVM_OLD_DEBUG_API宏没有启动的化,这里只保存每个基本块中的最后一个指令的信息
-				//这里是在 for (auto &I : BB)  循环下
 				if (!bb_name.empty()) {
-					BB.setName(bb_name + ":"); //设置基本块名称
+					BB.setName(bb_name + ":");
 					if (!BB.hasName()) {
 						std::string newname = bb_name + ":";
 						Twine t(newname);

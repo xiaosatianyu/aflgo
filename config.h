@@ -355,7 +355,11 @@
    forget to set environment variable AFLGO_PROFILER_FILE.
    
    $ export AFLGO_PROFILER_FILE=<your-file> */
-   
+
+
 //#define AFLGO_TRACING
+
+#define YYDBG
+#define XIAOSA
 
 #endif /* ! _HAVE_CONFIG_H */
